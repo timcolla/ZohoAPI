@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<% include ../partials/head %>
+</head>
+<body class="container">
+
+	<header>
+		<% include ../partials/header %>
+	</header>
+
+	<main>
+		<div class="row">
+			<div class="col-sm-12">
+			
+				<div class="jumbotron">
+					<% if (locals.email) { %>
+					  <p>Email: <%= email %></p>
+					<% } %>
+					<% if (locals.authtoken) { %>
+					  <p>Auth token: <%= authtoken %></p>
+					<% } %>
+					<form action="setup" method="POST">
+					  <div class="form-group">
+					    <label for="email">Email address</label>
+					    <input type="email" class="form-control" name="email" id="email" placeholder="Enter email">
+					  </div>
+					  <div class="form-group">
+					    <label for="authtoken">Auth token</label>
+					    <input type="text" class="form-control" name="authtoken" id="authtoken" placeholder="authtoken">
+					  </div>
+					  <button type="submit" class="btn btn-primary">Submit</button>
+					</form>
+				</div>
+				
+			</div>
+		</div>
+	</main>
+
+	<footer>
+		<% include ../partials/footer %>
+	</footer>
+	
+</body>
+</html>

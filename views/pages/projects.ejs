@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<% include ../partials/head %>
+</head>
+<body class="container">
+
+	<header>
+		<% include ../partials/header %>
+	</header>
+
+	<main>
+		<div class="row">
+			<div class="col-sm-12">
+			
+  			<div class="jumbotron">
+          <h2>Your projects</h2>
+          <p>
+            <% if (locals.error) { %>
+              <p>Error: <%= error %></p>
+            <% } %>
+            <% if (locals.projects) { %>
+              <!-- <p>Projects: <%= projects[0]["projectName"] %></p> -->
+              <ul>
+              <%for (var index in projects){
+              var project = projects[index];
+              %>
+                <li><a href="/project/<%=project["projectId"]%>"><%=project["projectName"]%> (ID: <%=project["projectId"]%>)</a></li>
+                <%}%>
+              </ul>
+            <% } %>
+          </p>
+  			</div>
+				
+			</div>
+		</div>
+	</main>
+
+	<footer>
+		<% include ../partials/footer %>
+	</footer>
+	
+</body>
+</html>
