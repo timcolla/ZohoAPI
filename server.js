@@ -134,14 +134,14 @@ app.post('/project', function(req, res) {
 
 // Add timelog
 app.post('/addtimelog', function(req, res) {
-	authToken = req.query.authToken || "";
-	email = req.query.email || "";
-	var projectID = req.query.projectID || "";
-	var jobID = req.query.jobID || "";
-	var workDate = req.query.workDate || "";
-	var hours = req.query.hours || "";
-	var billingStatus = req.query.billingStatus || "";
-	var description = req.query.description || "";
+	authToken = encodeURIComponent(req.query.authToken) || "";
+	email = encodeURIComponent(req.query.user) || "";
+	var projectID = encodeURIComponent(req.query.projectID) || "";
+	var jobID = encodeURIComponent(req.query.jobID) || "";
+	var workDate = encodeURIComponent(req.query.workDate) || "";
+	var hours = encodeURIComponent(req.query.hours) || "";
+	var billingStatus = encodeURIComponent(req.query.billingStatus) || "";
+	var description = encodeURIComponent(req.query.description) || "";
 
 	if (authToken == "") return res.send({ error: "Auth token isn't set."});
 	if (email == "") return res.send({ error: "Email isn't set."});
@@ -150,8 +150,8 @@ app.post('/addtimelog', function(req, res) {
 	if (workDate == "") return res.send({ error: "workDate isn't set."});
 	if (hours == "") return res.send({ error: "hours isn't set."});
 	if (billingStatus == "") return res.send({ error: "billable isn't set."});
-
-	request('https://people.zoho.eu/people/api/timetracker/addtimelog?authtoken='+authToken+'&user='+email+'&projectId='+projectID+'&jobId='+jobID+'&workDate='+workDate+'&hours='+hours+'&billingStatus='+billingStatus, function (error, response, body) {
+console.log(description);
+	request('https://people.zoho.eu/people/api/timetracker/addtimelog?authtoken='+authToken+'&user='+email+'&projectId='+projectID+'&jobId='+jobID+'&workDate='+workDate+'&hours='+hours+'&billingStatus='+billingStatus+'&description='+description, function (error, response, body) {
 
 		if (!error) {
 			console.log(body);
