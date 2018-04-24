@@ -17,6 +17,10 @@ var urlencodedParser = bodyParser.urlencoded({ extended: false })
 var authToken = "2e40ac7bbae44fce1a9a94978c143379"
 var email = "tim.colla@marinosoftware.com"
 
+function isJSONRequest(req) {
+	return req.headers["content-type"] == 'application/json';
+}
+
 // index page 
 app.get('/', function(req, res) {
     res.render('pages/index');
@@ -61,15 +65,25 @@ function getProjects(authToken, callback) {
 }
 
 app.get('/projects', function(req, res) {
-	if (authToken == "") return res.render('pages/projects', { error: "authToken not set, go to /setup first." });
+	if (isJSONRequest(req)) {
+		authToken = encodeURIComponent(req.query.authToken) || authToken;
 
-	getProjects(authToken, function(result) {
-		res.render('pages/projects', result);
-	});
+		if (authToken == "") return res.send({ error: "authToken isn't set."});
+
+		getProjects(authToken, function(result) {
+			res.send(result);
+		});
+	} else {
+		if (authToken == "") return res.render('pages/projects', { error: "authToken not set, go to /setup first." });
+
+		getProjects(authToken, function(result) {
+			res.render('pages/projects', result);
+		});
+	}
 });
 
 app.post('/projects', function(req, res) {
-	authToken = encodeURIComponent(req.query.authToken) || "";
+	authToken = encodeURIComponent(req.query.authToken) || authToken;
 
 	if (authToken == "") return res.send({ error: "authToken isn't set."});
 
@@ -80,6 +94,10 @@ app.post('/projects', function(req, res) {
 
 // Project page
 function getJobs(authToken, email, projectID, callback) {
+	var authToken = encodeURIComponent(authToken);
+	var email = encodeURIComponent(email);
+	var projectID = encodeURIComponent(projectID);
+
 	request('http://people.zoho.eu/people/api/timetracker/getjobs?authtoken='+authToken+'&assignedTo='+email+'&projectId='+projectID+'&jobStatus=all', function (error, response, body) {
 
 		if (!error) {
@@ -100,21 +118,36 @@ function getJobs(authToken, email, projectID, callback) {
 }
 
 app.get(['/project', '/project/:project'], function(req, res) {
-	var page = "pages/project";
-	if (authToken == "") return res.render(page, { error: "authToken not set, go to /setup first." });
-	if (!req.params.project) return res.render(page, { error: "Project id missing. Go to /project/<ProjectId>." });
+	if (!isJSONRequest(req)) {
+		var page = "pages/project";
+		if (authToken == "") return res.render(page, { error: "authToken not set, go to /setup first." });
+		if (email == "") return res.render(page, { error: "email not set, go to /setup first." });
+		if (!req.params.project) return res.render(page, { error: "Project id missing. Go to /project/<ProjectId>." });
 
-	var projectID = encodeURIComponent(req.params.project);
+		var projectID = req.params.project;
 
-	getJobs(authToken, email, projectID, function(result) {
-		res.render(page, result);
-	});
+		getJobs(authToken, email, projectID, function(result) {
+			res.render(page, result);
+		});
+	} else {
+		authToken = req.query.authToken || authToken;
+		email = req.query.user || email;
+		var projectID = req.query.projectID || "";
+
+		if (authToken == "") return res.send({ error: "authToken isn't set."});
+		if (email == "") return res.send({ error: "user isn't set."});
+		if (projectID == "") return res.send({ error: "projetID isn't set."});
+
+		getJobs(authToken, email, projectID, function(result) {
+			res.send(result);
+		});
+	}
 });
 
 app.post('/project', function(req, res) {
-	authToken = encodeURIComponent(req.query.authToken) || "";
-	email = encodeURIComponent(req.query.user) || "";
-	var projectID = encodeURIComponent(req.query.projectID) || "";
+	authToken = req.query.authToken || authToken;
+	email = req.query.user || email;
+	var projectID = req.query.projectID || "";
 
 	if (authToken == "") return res.send({ error: "authToken isn't set."});
 	if (email == "") return res.send({ error: "user isn't set."});
@@ -125,26 +158,41 @@ app.post('/project', function(req, res) {
 	});
 });
 
+app.get('/getjobs', function(req, res) {
+	var params = {authToken: (req.query.authToken || authToken),
+								email: (req.query.user || email),
+								projectID: (req.query.projectID || "")};
+
+	if (params.authToken == "") return res.send({ error: "authToken isn't set."});
+	if (params.email == "") return res.send({ error: "user isn't set."});
+	if (params.projectID == "") return res.send({ error: "projetID isn't set."});
+
+	getJobs(params.authToken, params.email, params.projectID, function(result) {
+		res.send(result);
+	});
+});
+
 // Add timelog
 app.post('/addtimelog', function(req, res) {
-	authToken = encodeURIComponent(req.query.authToken) || "";
-	email = encodeURIComponent(req.query.user) || "";
-	var projectID = encodeURIComponent(req.query.projectID) || "";
-	var jobID = encodeURIComponent(req.query.jobID) || "";
-	var workDate = encodeURIComponent(req.query.workDate) || "";
-	var hours = encodeURIComponent(req.query.hours) || "";
-	var billingStatus = encodeURIComponent(req.query.billingStatus) || "";
-	var description = encodeURIComponent(req.query.description) || "";
+	var params = encodeURIObject({authToken: (req.query.authToken || authToken),
+								email: (req.query.user || email),
+								projectID: (req.query.projectID || ""),
+								jobID: (req.query.jobID || ""),
+								workDate: (req.query.workDate || ""),
+								hours: (req.query.hours || ""),
+								billingStatus: (req.query.billingStatus || ""),
+								description: (req.query.description || "")});
 
-	if (authToken == "") return res.send({ error: "authToken isn't set."});
-	if (email == "") return res.send({ error: "user isn't set."});
-	if (projectID == "") return res.send({ error: "projetID isn't set."});
-	if (jobID == "") return res.send({ error: "jobID isn't set."});
-	if (workDate == "") return res.send({ error: "workDate isn't set."});
-	if (hours == "") return res.send({ error: "hours isn't set."});
-	if (billingStatus == "") return res.send({ error: "billable isn't set."});
+	if (params.authToken == "") return res.send({ error: "authToken isn't set."});
+	if (params.email == "") return res.send({ error: "user isn't set."});
+	if (params.projectID == "") return res.send({ error: "projetID isn't set."});
+	if (params.jobID == "") return res.send({ error: "jobID isn't set."});
+	if (params.workDate == "") return res.send({ error: "workDate isn't set."});
+	if (params.hours == "") return res.send({ error: "hours isn't set."});
+	if (params.billingStatus == "") return res.send({ error: "billable isn't set."});
 
-	request('https://people.zoho.eu/people/api/timetracker/addtimelog?authtoken='+authToken+'&user='+email+'&projectId='+projectID+'&jobId='+jobID+'&workDate='+workDate+'&hours='+hours+'&billingStatus='+billingStatus+'&description='+description, function (error, response, body) {
+	request('https://people.zoho.eu/people/api/timetracker/addtimelog?authtoken='+params.authToken+'&user='+params.email+'&projectId='+params.projectID+'&jobId='+params.jobID+'&workDate='+params.workDate+'&hours='+params.hours+'&billingStatus='+params.billingStatus+'&description='+params.description, 
+		function (error, response, body) {
 
 		if (!error) {
 			console.log(body);
@@ -162,6 +210,16 @@ app.post('/addtimelog', function(req, res) {
 		}
 	});
 });
+
+function encodeURIObject(object) {
+	for (var key in object) {
+	   if (object.hasOwnProperty(key)) {
+			object[key] = encodeURIComponent(object[key]);
+	   }
+	}
+
+	return object;
+}
 
 app.listen(8080);
 console.log('8080 is the magic port');
