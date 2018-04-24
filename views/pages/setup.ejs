@@ -15,7 +15,7 @@
 			
 				<div class="jumbotron">
 					<% if (locals.email) { %>
-					  <p>Email: <%= email %></p>
+					  <p>Email: <%= decodeURIComponent(email) %></p>
 					<% } %>
 					<% if (locals.authToken) { %>
 					  <p>Auth token: <%= authToken %></p>

@@ -2,6 +2,7 @@
 var express = require('express');
 var bodyParser = require('body-parser');
 var request = require('request');
+var MongoClient = require('mongodb').MongoClient;
 
 var app = express();
 
@@ -17,54 +18,107 @@ var urlencodedParser = bodyParser.urlencoded({ extended: false })
 var authToken = ""
 var email = ""
 
-function isJSONRequest(req) {
-	return req.headers["content-type"] == 'application/json';
-}
+// MongoDB setup
+var dbUrl = "mongodb://localhost:27017/hackathon";
 
-// index page 
-app.get('/', function(req, res) {
-    res.redirect('/setup');//.render('pages/index');
+MongoClient.connect(dbUrl, function(err, db) {
+	if (err) throw err;
+
+	var dbo = db.db("hackathon");
+
+	dbo.collection("credentials").findOne({}, function(err, result) {
+	    if (err) throw err;
+	    if (result == null) {
+	    	console.log("Database not created yet. Run createDB.js first.")
+	    } else {
+	    	authToken = result.authToken;
+	    	email = result.user;
+	    	// Start the server
+	    	setupServer();
+	    }
+    	db.close();
+	});
 });
 
-// about page 
-app.get('/about', function(req, res) {
-    res.render('pages/about');
-});
+function setupServer() {
 
-// setup page 
-app.get('/setup', function(req, res) {
-    res.render('pages/setup', { email: email, authToken: authToken});
-});
+	function isJSONRequest(req) {
+		return req.headers["content-type"] == 'application/json';
+	}
 
-app.post('/setup', urlencodedParser, function(req, res) {
-	if (!req.body.user || !req.body.authToken) return res.sendStatus(400)
+	// index page 
+	app.get('/', function(req, res) {
+	    res.redirect('/setup');//.render('pages/index');
+	});
 
-	authToken = encodeURIComponent(req.body.authToken);
-	email = encodeURIComponent(req.body.user);
-    res.render('pages/setup', { email: email, authToken: authToken});
-});
+	// about page 
+	app.get('/about', function(req, res) {
+	    res.render('pages/about');
+	});
 
-// Projects page
-function getProjects(authToken, callback) {
-	request('https://people.zoho.eu/people/api/timetracker/getprojects?authtoken='+authToken, function (error, response, body) {
+	// setup page 
+	app.get('/setup', function(req, res) {
+	    res.render('pages/setup', { email: email, authToken: authToken});
+	});
 
-		if (!error) {
-			var json = JSON.parse(body);
-			if (!json.response.result) {
-				callback( { error: "Something went wrong with the Zoho API request." } );
+	app.post('/setup', urlencodedParser, function(req, res) {
+		if (!req.body.user || !req.body.authToken) return res.sendStatus(400)
+
+		authToken = encodeURIComponent(req.body.authToken);
+		email = encodeURIComponent(req.body.user);
+	    res.render('pages/setup', { email: email, authToken: authToken});
+
+	    MongoClient.connect(dbUrl, function(err, db) {
+		  if (err) throw err;
+		  var dbo = db.db("hackathon");
+		  var myquery = {};
+		  var newvalues = { $set: {user: email, authToken: authToken } };
+		  dbo.collection("credentials").updateOne(myquery, newvalues, function(err, res) {
+		    if (err) throw err;
+		    console.log("1 document updated");
+		    db.close();
+		  });
+		});
+	});
+
+	// Projects page
+	function getProjects(authToken, callback) {
+		request('https://people.zoho.eu/people/api/timetracker/getprojects?authtoken='+authToken, function (error, response, body) {
+
+			if (!error) {
+				var json = JSON.parse(body);
+				if (!json.response.result) {
+					callback( { error: "Something went wrong with the Zoho API request." } );
+				} else {
+					callback( { projects: json.response.result } );
+				}
+
 			} else {
-				callback( { projects: json.response.result } );
+				console.log('error:', error); // Print the error if one occurred
+				callback( { error: error } );
 			}
+		});
+	}
 
+	app.get('/projects', function(req, res) {
+		if (isJSONRequest(req)) {
+			authToken = encodeURIComponent(req.query.authToken) || authToken;
+
+			if (authToken == "") return res.send({ error: "authToken isn't set."});
+
+			getProjects(authToken, function(result) {
+				res.send(result);
+			});
 		} else {
-			console.log('error:', error); // Print the error if one occurred
-			callback( { error: error } );
+			if (authToken == "") return res.render('pages/projects', { error: "authToken not set, go to /setup first." });
+
+			getProjects(authToken, function(result) {
+				res.render('pages/projects', result);
+			});
 		}
 	});
-}
 
-app.get('/projects', function(req, res) {
-	if (isJSONRequest(req)) {
+	app.post('/projects', function(req, res) {
 		authToken = encodeURIComponent(req.query.authToken) || authToken;
 
 		if (authToken == "") return res.send({ error: "authToken isn't set."});
@@ -72,62 +126,60 @@ app.get('/projects', function(req, res) {
 		getProjects(authToken, function(result) {
 			res.send(result);
 		});
-	} else {
-		if (authToken == "") return res.render('pages/projects', { error: "authToken not set, go to /setup first." });
+	});
 
-		getProjects(authToken, function(result) {
-			res.render('pages/projects', result);
+	// Project page
+	function getJobs(authToken, email, projectID, callback) {
+		var authToken = encodeURIComponent(authToken);
+		var email = encodeURIComponent(email);
+		var projectID = encodeURIComponent(projectID);
+
+		request('http://people.zoho.eu/people/api/timetracker/getjobs?authtoken='+authToken+'&assignedTo='+email+'&projectId='+projectID+'&jobStatus=all', function (error, response, body) {
+
+			if (!error) {
+				var json = JSON.parse(body);
+
+				if (!json.response.result) {
+					callback( { error: "Something went wrong with the Zoho API request." });
+				} else {
+					callback( { jobs: json.response.result, projectName: json.response.result[0]["projectName"] });
+				}
+
+			} else {
+				console.log('error:', error); // Print the error if one occurred
+				callback( { error: error });
+			}
 		});
 	}
-});
 
-app.post('/projects', function(req, res) {
-	authToken = encodeURIComponent(req.query.authToken) || authToken;
+	app.get(['/project', '/project/:project'], function(req, res) {
+		if (!isJSONRequest(req)) {
+			var page = "pages/project";
+			if (authToken == "") return res.render(page, { error: "authToken not set, go to /setup first." });
+			if (email == "") return res.render(page, { error: "email not set, go to /setup first." });
+			if (!req.params.project) return res.render(page, { error: "Project id missing. Go to /project/<ProjectId>." });
 
-	if (authToken == "") return res.send({ error: "authToken isn't set."});
+			var projectID = req.params.project;
 
-	getProjects(authToken, function(result) {
-		res.send(result);
-	});
-});
-
-// Project page
-function getJobs(authToken, email, projectID, callback) {
-	var authToken = encodeURIComponent(authToken);
-	var email = encodeURIComponent(email);
-	var projectID = encodeURIComponent(projectID);
-
-	request('http://people.zoho.eu/people/api/timetracker/getjobs?authtoken='+authToken+'&assignedTo='+email+'&projectId='+projectID+'&jobStatus=all', function (error, response, body) {
-
-		if (!error) {
-			var json = JSON.parse(body);
-
-			if (!json.response.result) {
-				callback( { error: "Something went wrong with the Zoho API request." });
-			} else {
-				callback( { jobs: json.response.result, projectName: json.response.result[0]["projectName"] });
-			}
-
+			getJobs(authToken, email, projectID, function(result) {
+				res.render(page, result);
+			});
 		} else {
-			console.log('error:', error); // Print the error if one occurred
-			callback( { error: error });
+			authToken = req.query.authToken || authToken;
+			email = req.query.user || email;
+			var projectID = req.query.projectID || "";
+
+			if (authToken == "") return res.send({ error: "authToken isn't set."});
+			if (email == "") return res.send({ error: "user isn't set."});
+			if (projectID == "") return res.send({ error: "projetID isn't set."});
+
+			getJobs(authToken, email, projectID, function(result) {
+				res.send(result);
+			});
 		}
 	});
-}
 
-app.get(['/project', '/project/:project'], function(req, res) {
-	if (!isJSONRequest(req)) {
-		var page = "pages/project";
-		if (authToken == "") return res.render(page, { error: "authToken not set, go to /setup first." });
-		if (email == "") return res.render(page, { error: "email not set, go to /setup first." });
-		if (!req.params.project) return res.render(page, { error: "Project id missing. Go to /project/<ProjectId>." });
-
-		var projectID = req.params.project;
-
-		getJobs(authToken, email, projectID, function(result) {
-			res.render(page, result);
-		});
-	} else {
+	app.post('/project', function(req, res) {
 		authToken = req.query.authToken || authToken;
 		email = req.query.user || email;
 		var projectID = req.query.projectID || "";
@@ -139,99 +191,85 @@ app.get(['/project', '/project/:project'], function(req, res) {
 		getJobs(authToken, email, projectID, function(result) {
 			res.send(result);
 		});
-	}
-});
-
-app.post('/project', function(req, res) {
-	authToken = req.query.authToken || authToken;
-	email = req.query.user || email;
-	var projectID = req.query.projectID || "";
-
-	if (authToken == "") return res.send({ error: "authToken isn't set."});
-	if (email == "") return res.send({ error: "user isn't set."});
-	if (projectID == "") return res.send({ error: "projetID isn't set."});
-
-	getJobs(authToken, email, projectID, function(result) {
-		res.send(result);
 	});
-});
 
-app.get('/getjobs', function(req, res) {
-	var params = {authToken: (req.query.authToken || authToken),
-								email: (req.query.user || email),
-								projectID: (req.query.projectID || "")};
+	app.get('/getjobs', function(req, res) {
+		var params = {authToken: (req.query.authToken || authToken),
+									email: (req.query.user || email),
+									projectID: (req.query.projectID || "")};
 
-	if (params.authToken == "") return res.send({ error: "authToken isn't set."});
-	if (params.email == "") return res.send({ error: "user isn't set."});
-	if (params.projectID == "") return res.send({ error: "projetID isn't set."});
+		if (params.authToken == "") return res.send({ error: "authToken isn't set."});
+		if (params.email == "") return res.send({ error: "user isn't set."});
+		if (params.projectID == "") return res.send({ error: "projetID isn't set."});
 
-	getJobs(params.authToken, params.email, params.projectID, function(result) {
-		res.send(result);
+		getJobs(params.authToken, params.email, params.projectID, function(result) {
+			res.send(result);
+		});
 	});
-});
 
-// Add timelog
-app.post('/addtimelog', function(req, res) {
-	var params = encodeURIObject({authToken: (req.query.authToken || authToken),
-								email: (req.query.user || email),
-								projectID: (req.query.projectID || ""),
-								jobID: (req.query.jobID || ""),
-								workDate: (req.query.workDate || ""),
-								hours: (req.query.hours || ""),
-								billingStatus: (req.query.billingStatus || ""),
-								description: (req.query.description || "")});
+	// Add timelog
+	app.post('/addtimelog', function(req, res) {
+		var params = encodeURIObject({authToken: (req.query.authToken || authToken),
+									email: (req.query.user || email),
+									projectID: (req.query.projectID || ""),
+									jobID: (req.query.jobID || ""),
+									workDate: (req.query.workDate || ""),
+									hours: (req.query.hours || ""),
+									billingStatus: (req.query.billingStatus || ""),
+									description: (req.query.description || "")});
 
-	if (params.authToken == "") return res.send({ error: "authToken isn't set."});
-	if (params.email == "") return res.send({ error: "user isn't set."});
-	if (params.projectID == "") return res.send({ error: "projetID isn't set."});
-	if (params.jobID == "") return res.send({ error: "jobID isn't set."});
-	if (params.workDate == "") return res.send({ error: "workDate isn't set."});
-	if (params.hours == "") return res.send({ error: "hours isn't set."});
-	if (params.billingStatus == "") return res.send({ error: "billable isn't set."});
+		if (params.authToken == "") return res.send({ error: "authToken isn't set."});
+		if (params.email == "") return res.send({ error: "user isn't set."});
+		if (params.projectID == "") return res.send({ error: "projetID isn't set."});
+		if (params.jobID == "") return res.send({ error: "jobID isn't set."});
+		if (params.workDate == "") return res.send({ error: "workDate isn't set."});
+		if (params.hours == "") return res.send({ error: "hours isn't set."});
+		if (params.billingStatus == "") return res.send({ error: "billable isn't set."});
 
-	request('https://people.zoho.eu/people/api/timetracker/addtimelog?authtoken='+params.authToken+'&user='+params.email+'&projectId='+params.projectID+'&jobId='+params.jobID+'&workDate='+params.workDate+'&hours='+params.hours+'&billingStatus='+params.billingStatus+'&description='+params.description, 
-		function (error, response, body) {
+		request('https://people.zoho.eu/people/api/timetracker/addtimelog?authtoken='+params.authToken+'&user='+params.email+'&projectId='+params.projectID+'&jobId='+params.jobID+'&workDate='+params.workDate+'&hours='+params.hours+'&billingStatus='+params.billingStatus+'&description='+params.description, 
+			function (error, response, body) {
 
-		if (!error) {
-			console.log(body);
-			var json = JSON.parse(body);
-			console.log(json);
-			if (!json.response.result) {
-				res.send( { error: "Something went wrong with the Zoho API request." });
+			if (!error) {
+				console.log(body);
+				var json = JSON.parse(body);
+				console.log(json);
+				if (!json.response.result) {
+					res.send( { error: "Something went wrong with the Zoho API request." });
+				} else {
+					res.send( { timeLogID: json.response.result[0].timeLogId });
+				}
+
 			} else {
-				res.send( { timeLogID: json.response.result[0].timeLogId });
+				console.log('error:', error); // Print the error if one occurred
+				res.send( { error: error });
 			}
-
-		} else {
-			console.log('error:', error); // Print the error if one occurred
-			res.send( { error: error });
-		}
+		});
 	});
-});
 
-function encodeURIObject(object) {
-	for (var key in object) {
-	   if (object.hasOwnProperty(key)) {
-			object[key] = encodeURIComponent(object[key]);
-	   }
+	function encodeURIObject(object) {
+		for (var key in object) {
+		   if (object.hasOwnProperty(key)) {
+				object[key] = encodeURIComponent(object[key]);
+		   }
+		}
+
+		return object;
 	}
 
-	return object;
+	var os = require('os');
+	var ifaces = os.networkInterfaces();
+	var ifname = 'en0';
+	var ip = "192.168.1.?"
+	ifaces[ifname].forEach(function (iface) {
+	    if ('IPv4' !== iface.family || iface.internal !== false) {
+	      // skip over internal (i.e. 127.0.0.1) and non-ipv4 addresses
+	      return;
+	    }
+	    ip = iface.address;
+	  });
+	// });
+
+	var port = 8080;
+	app.listen(port);
+	console.log('Listening on: '+ip+':'+port);
 }
-
-var os = require('os');
-var ifaces = os.networkInterfaces();
-var ifname = 'en0';
-var ip = "192.168.1.?"
-ifaces[ifname].forEach(function (iface) {
-    if ('IPv4' !== iface.family || iface.internal !== false) {
-      // skip over internal (i.e. 127.0.0.1) and non-ipv4 addresses
-      return;
-    }
-    ip = iface.address;
-  });
-// });
-
-var port = 8080;
-app.listen(port);
-console.log('Listening on: '+ip+':'+port);
