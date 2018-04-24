@@ -14,8 +14,8 @@ var jsonParser = bodyParser.json()
 // create application/x-www-form-urlencoded parser
 var urlencodedParser = bodyParser.urlencoded({ extended: false })
 
-var authToken = "2e40ac7bbae44fce1a9a94978c143379"
-var email = "tim.colla@marinosoftware.com"
+var authToken = ""
+var email = ""
 
 function isJSONRequest(req) {
 	return req.headers["content-type"] == 'application/json';
@@ -219,5 +219,19 @@ function encodeURIObject(object) {
 	return object;
 }
 
-app.listen(8080);
-console.log('8080 is the magic port');
+var os = require('os');
+var ifaces = os.networkInterfaces();
+var ifname = 'en0';
+var ip = "192.168.1.?"
+ifaces[ifname].forEach(function (iface) {
+    if ('IPv4' !== iface.family || iface.internal !== false) {
+      // skip over internal (i.e. 127.0.0.1) and non-ipv4 addresses
+      return;
+    }
+    ip = iface.address;
+  });
+// });
+
+var port = 8080;
+app.listen(port);
+console.log('Listening on: '+ip+':'+port);
