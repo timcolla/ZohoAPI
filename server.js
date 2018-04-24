@@ -23,7 +23,7 @@ function isJSONRequest(req) {
 
 // index page 
 app.get('/', function(req, res) {
-    res.render('pages/index');
+    res.redirect('/setup');//.render('pages/index');
 });
 
 // about page 
@@ -50,7 +50,6 @@ function getProjects(authToken, callback) {
 
 		if (!error) {
 			var json = JSON.parse(body);
-			console.log(json);
 			if (!json.response.result) {
 				callback( { error: "Something went wrong with the Zoho API request." } );
 			} else {
@@ -101,9 +100,8 @@ function getJobs(authToken, email, projectID, callback) {
 	request('http://people.zoho.eu/people/api/timetracker/getjobs?authtoken='+authToken+'&assignedTo='+email+'&projectId='+projectID+'&jobStatus=all', function (error, response, body) {
 
 		if (!error) {
-			console.log(body);
 			var json = JSON.parse(body);
-			console.log(json);
+
 			if (!json.response.result) {
 				callback( { error: "Something went wrong with the Zoho API request." });
 			} else {
