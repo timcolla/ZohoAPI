@@ -20,13 +20,16 @@ var email = ""
 
 // MongoDB setup
 var dbUrl = "mongodb://localhost:27017/hackathon";
+var dbName = "hackathon";
+var credentialsCollection = "credentials";
+var favouritesCollection = "favourites"
 
 MongoClient.connect(dbUrl, function(err, db) {
 	if (err) throw err;
 
-	var dbo = db.db("hackathon");
+	var dbo = db.db(dbName);
 
-	dbo.collection("credentials").findOne({}, function(err, result) {
+	dbo.collection(credentialsCollection).findOne({}, function(err, result) {
 	    if (err) throw err;
 	    if (result == null) {
 	    	console.log("Database not created yet. Run createDB.js first.")
@@ -64,16 +67,16 @@ function setupServer() {
 	app.post('/setup', urlencodedParser, function(req, res) {
 		if (!req.body.user || !req.body.authToken) return res.sendStatus(400)
 
-		authToken = encodeURIComponent(req.body.authToken);
-		email = encodeURIComponent(req.body.user);
+		authToken = req.body.authToken;
+		email = req.body.user;
 	    res.render('pages/setup', { email: email, authToken: authToken});
 
 	    MongoClient.connect(dbUrl, function(err, db) {
 		  if (err) throw err;
-		  var dbo = db.db("hackathon");
+		  var dbo = db.db(dbName);
 		  var myquery = {};
 		  var newvalues = { $set: {user: email, authToken: authToken } };
-		  dbo.collection("credentials").updateOne(myquery, newvalues, function(err, res) {
+		  dbo.collection(credentialsCollection).updateOne(myquery, newvalues, function(err, res) {
 		    if (err) throw err;
 		    console.log("1 document updated");
 		    db.close();
@@ -137,17 +140,23 @@ function setupServer() {
 		request('http://people.zoho.eu/people/api/timetracker/getjobs?authtoken='+authToken+'&assignedTo='+email+'&projectId='+projectID+'&jobStatus=all', function (error, response, body) {
 
 			if (!error) {
-				var json = JSON.parse(body);
+				try {
+					var json = JSON.parse(body);
+				} catch(parseError) {
+					return callback( { error: "Something went wrong with parsing the Zoho API response." });
+				}
 
 				if (!json.response.result) {
-					callback( { error: "Something went wrong with the Zoho API request." });
+					return callback( { error: "Something went wrong with the Zoho API request." });
 				} else {
-					callback( { jobs: json.response.result, projectName: json.response.result[0]["projectName"] });
+					return callback( { jobs: json.response.result, 
+										projectName: json.response.result[0]["projectName"],
+										projectID: json.response.result[0]["projectId"] });
 				}
 
 			} else {
 				console.log('error:', error); // Print the error if one occurred
-				callback( { error: error });
+				return callback( { error: error });
 			}
 		});
 	}
@@ -243,6 +252,76 @@ function setupServer() {
 				console.log('error:', error); // Print the error if one occurred
 				res.send( { error: error });
 			}
+		});
+	});
+
+	// Favourites
+	app.post('/add_favourite', function(req, res) {
+		var jobID = req.query.jobID;
+		var jobName = req.query.jobName;
+		var projectID = req.query.projectID;
+		var projectName = req.query.projectName;
+
+		if (jobID && jobName && projectID && projectName) {
+			MongoClient.connect(dbUrl, function(err, db) {
+				if (err) throw err;
+				var dbo = db.db(dbName);
+				var myquery = { jobID: jobID };
+				var newvalues = { $set: {jobID: jobID, 
+										jobName: jobName,
+										projectID: projectID,
+										projectName: projectName } };
+				dbo.collection(favouritesCollection).updateOne(myquery, newvalues, { upsert: true }, function(err, result) {
+					if (err) throw err;
+					console.log(jobID+" added as favourite.");
+					db.close();
+
+					return res.send({status: 200, message: jobID+" added as favourite."});
+				});
+			});
+		} else {
+			return res.send({ error: "jobID or jobName isn't set."});
+		}
+	});
+
+	app.post('/delete_favourite', jsonParser, function(req, res) {
+		var jobID = req.query.jobID || req.body.jobID;
+
+		if (jobID) {
+			MongoClient.connect(dbUrl, function(err, db) {
+				if (err) throw err;
+				var dbo = db.db(dbName);
+				var myquery = { jobID: ""+jobID };
+				console.log(myquery);
+				dbo.collection(favouritesCollection).deleteOne(myquery, function(err, result) {
+					if (err) throw err;
+					console.log("Deleted "+jobID+".");
+					// console.log(result);
+					db.close();
+
+					return res.send({status: 200, message: "Deleted "+jobID+"."});
+				});
+			});
+		} else {
+			return res.send({ error: "jobID isn't set."});
+		}
+	});
+
+	app.get('/favourites', function (req, res) {
+		MongoClient.connect(dbUrl, function(err, db) {
+			if (err) throw err;
+			var dbo = db.db(dbName);
+
+			dbo.collection(favouritesCollection).find({}).toArray(function(err, result) {
+				if (err) throw err;
+				db.close();
+
+				if (!isJSONRequest(req)) {
+					res.render("pages/favourites", {favourites: result});
+				} else {
+					return res.send(result);
+				}
+			});
 		});
 	});
 

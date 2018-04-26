@@ -6,3 +6,20 @@
 <style>
 	body 	{ padding-top:50px; }
 </style>
+<script src="https://code.jquery.com/jquery-3.3.1.min.js" type="text/javascript"></script>
+<script type="text/javascript">
+	function deleteFavourite(jobID) {
+		$.ajax({
+			type: "POST",
+			url: "http://localhost:8080/delete_favourite",
+			data: JSON.stringify({
+				jobID: jobID
+			}),
+			contentType: 'application/json',
+			success: function( result ) {
+				// alert('deleted '+jobID);
+				alert(result.message);
+			}
+		});
+	}
+</script>

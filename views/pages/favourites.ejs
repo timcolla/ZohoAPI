@@ -14,19 +14,22 @@
 			<div class="col-sm-12">
 			
   			<div class="jumbotron">
-          <h2>Your projects</h2>
+          <h2>Your favourites</h2>
           <p>
             <% if (locals.error) { %>
               <p>Error: <%= error %></p>
             <% } %>
-            <% if (locals.projects) { %>
+            <% if (locals.favourites && favourites.length > 0) { 
+            %>
               <ul>
-              <%for (var index in projects){
-              var project = projects[index];
+              <%for (var index in favourites){
+              var favourite = favourites[index];
               %>
-                <li><a href="/project/<%=project["projectId"]%>"><%=project["projectName"]%> (ID: <%=project["projectId"]%>)</a></li>
+                <li><%=favourite["projectName"]%>: <%=favourite["jobName"]%> (ID: <%=favourite["jobID"]%>) <a href="/favourites" onClick="deleteFavourite(<%=favourite['jobID']%>);">Delete</a></li>
                 <%}%>
               </ul>
+            <% } else { %>
+              <p>You have no favourites yet.</p>
             <% } %>
           </p>
   			</div>
