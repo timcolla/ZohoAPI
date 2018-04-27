@@ -151,7 +151,7 @@ function setupServer() {
 				} else {
 					return callback( { jobs: json.response.result, 
 										projectName: json.response.result[0]["projectName"],
-										projectID: json.response.result[0]["projectId"] });
+										projectID: projectID });
 				}
 
 			} else {
@@ -256,11 +256,12 @@ function setupServer() {
 	});
 
 	// Favourites
-	app.post('/add_favourite', function(req, res) {
-		var jobID = req.query.jobID;
-		var jobName = req.query.jobName;
-		var projectID = req.query.projectID;
-		var projectName = req.query.projectName;
+	app.post('/add_favourite', jsonParser, function(req, res) {
+		console.log(req.body);
+		var jobID = req.query.jobID || req.body.jobID;
+		var jobName = req.query.jobName || req.body.jobName;
+		var projectID = req.query.projectID || req.body.projectID;
+		var projectName = req.query.projectName || req.body.projectName;
 
 		if (jobID && jobName && projectID && projectName) {
 			MongoClient.connect(dbUrl, function(err, db) {

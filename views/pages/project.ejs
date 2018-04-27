@@ -28,7 +28,7 @@
               <%for (var index in jobs){
               var job = jobs[index];
               %>
-                <li><%=job["jobName"]%> (ID: <%=job["jobId"]%>)</li>    
+                <li><%=job["jobName"]%> (ID: <%=job["jobId"]%>) <a href="#" onClick="addFavourite('<%=job['jobId']%>','<%=job['jobName']%>','<%=projectID%>','<%=job['projectName']%>'); return false;">Add to favourites</a></li>    
                 <%}%>
               </ul>
             <% } %>

@@ -25,7 +25,7 @@
               <%for (var index in favourites){
               var favourite = favourites[index];
               %>
-                <li><%=favourite["projectName"]%>: <%=favourite["jobName"]%> (ID: <%=favourite["jobID"]%>) <a href="/favourites" onClick="deleteFavourite(<%=favourite['jobID']%>);">Delete</a></li>
+                <li><%=favourite["projectName"]%>: <%=favourite["jobName"]%> (ID: <%=favourite["jobID"]%>) <a href="#" onClick="deleteFavourite(<%=favourite['jobID']%>); return false;">Delete</a></li>
                 <%}%>
               </ul>
             <% } else { %>

@@ -19,6 +19,25 @@
 			success: function( result ) {
 				// alert('deleted '+jobID);
 				alert(result.message);
+				location.reload();
+			}
+		});
+	}
+
+	function addFavourite(jobID, jobName, projectID, projectName) {
+		$.ajax({
+			type: "POST",
+			url: "http://localhost:8080/add_favourite",
+			data: JSON.stringify({
+				jobID: jobID,
+				jobName: jobName,
+				projectName: projectName,
+				projectID: projectID
+			}),
+			contentType: 'application/json',
+			success: function( result ) {
+				// alert('deleted '+jobID);
+				alert(result.message);
 			}
 		});
 	}
