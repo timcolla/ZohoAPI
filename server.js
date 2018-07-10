@@ -24,7 +24,7 @@ var dbName = "hackathon";
 var credentialsCollection = "credentials";
 var favouritesCollection = "favourites"
 
-MongoClient.connect(dbUrl, function(err, db) {
+MongoClient.connect(dbUrl, { useNewUrlParser: true }, function(err, db) {
 	if (err) throw err;
 
 	var dbo = db.db(dbName);
