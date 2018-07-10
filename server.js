@@ -71,7 +71,7 @@ function setupServer() {
 		email = req.body.user;
 	    res.render('pages/setup', { email: email, authToken: authToken});
 
-	    MongoClient.connect(dbUrl, function(err, db) {
+	    MongoClient.connect(dbUrl, { useNewUrlParser: true }, function(err, db) {
 		  if (err) throw err;
 		  var dbo = db.db(dbName);
 		  var myquery = {};
@@ -264,7 +264,7 @@ function setupServer() {
 		var projectName = req.query.projectName || req.body.projectName;
 
 		if (jobID && jobName && projectID && projectName) {
-			MongoClient.connect(dbUrl, function(err, db) {
+			MongoClient.connect(dbUrl, { useNewUrlParser: true }, function(err, db) {
 				if (err) throw err;
 				var dbo = db.db(dbName);
 				var myquery = { jobID: jobID };
@@ -289,7 +289,7 @@ function setupServer() {
 		var jobID = req.query.jobID || req.body.jobID;
 
 		if (jobID) {
-			MongoClient.connect(dbUrl, function(err, db) {
+			MongoClient.connect(dbUrl, { useNewUrlParser: true }, function(err, db) {
 				if (err) throw err;
 				var dbo = db.db(dbName);
 				var myquery = { jobID: ""+jobID };
@@ -309,7 +309,7 @@ function setupServer() {
 	});
 
 	app.get('/favourites', function (req, res) {
-		MongoClient.connect(dbUrl, function(err, db) {
+		MongoClient.connect(dbUrl, { useNewUrlParser: true }, function(err, db) {
 			if (err) throw err;
 			var dbo = db.db(dbName);
 
