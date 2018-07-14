@@ -6,8 +6,10 @@ https://accounts.zoho.eu/apiauthtoken/create?SCOPE=zohopeople/peopleapi
 
 # Set up Mongo
 - Create dir: mongo/data/db
-- Go to root dir
+- Go to project root dir
 - `./mongo/bin/mongod --dbpath ./mongo/data/db`
   - Or if you have mongo installed on your mac run that
+  
+- In a seperate terminal tab/window, run from project root dir:
 - `npm install`
 - `node server.js`
